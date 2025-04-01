@@ -1,10 +1,6 @@
-import openai
+import os
+from openai import OpenAI
 
-openai.api_key = "YOUR_OPENAI_API_KEY"
-
-def explain_automata(query: str):
-    response = openai.ChatCompletion.create(
-        model="gpt-4",
-        messages=[{"role": "user", "content": f"Explain {query} in simple terms"}]
-    )
-    return response["choices"][0]["message"]["content"]
+# Get API key from environment variable - safer than hardcoding
+api_key = os.environ.get("OPENAI_API_KEY", "")
+client = OpenAI(api_key=api_key)

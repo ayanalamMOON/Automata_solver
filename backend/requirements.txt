@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+automata-lib
+graphviz
+python-multipart
+openai  # for the AI explainer

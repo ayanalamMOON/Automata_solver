@@ -34,3 +34,23 @@ export const exportAutomaton = async (automatonData, format) => {
     const data = await response.json();
     return data.data;
 };
+
+export const validateRegex = async (regex) => {
+    const response = await fetch(`${API_URL}/validate_regex`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'regex', value: regex })
+    });
+    const data = await response.json();
+    return data;
+};
+
+export const aiSuggestions = async (regex) => {
+    const response = await fetch(`${API_URL}/ai_suggestions`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type: 'regex', value: regex })
+    });
+    const data = await response.json();
+    return data;
+};

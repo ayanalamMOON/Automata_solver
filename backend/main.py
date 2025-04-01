@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from automata_solver import convert_regex_to_dfa, minimize_automaton, export_automaton
+from automata_solver import convert_regex_to_dfa, minimize_automaton, export_automaton, validate_regex
 from ai_explainer import explain_automata
 
 app = FastAPI()
@@ -50,3 +50,13 @@ async def export(automaton: AutomatonData, format: str):
         return {"error": "Unsupported format"}
     result = export_automaton(automaton.dict(), format)
     return {"data": result}
+
+@app.post("/validate_regex")
+async def validate_regex_endpoint(input: RegexInput):
+    is_valid = validate_regex(input.value)
+    return {"is_valid": is_valid}
+
+@app.post("/ai_suggestions")
+async def ai_suggestions(input: RegexInput):
+    suggestions = explain_automata(f"Improve regex: {input.value}")
+    return {"suggestions": suggestions}

@@ -1,5 +1,6 @@
-import React, { useState } from "react";
-import { convertRegex, explainAutomata, minimizeAutomaton, exportAutomaton } from "./api";
+import React, { useState, useEffect } from "react";
+import { convertRegex, explainAutomata, minimizeAutomaton, exportAutomaton, validateRegex, aiSuggestions } from "./api";
+import * as d3 from "d3";
 
 const App = () => {
     const [regex, setRegex] = useState("");
@@ -14,25 +15,43 @@ const App = () => {
     });
     const [editingState, setEditingState] = useState(false);
     const [newState, setNewState] = useState({ name: "", isFinal: false });
+    const [isValidRegex, setIsValidRegex] = useState(true);
+    const [loading, setLoading] = useState(false);
+    const [suggestions, setSuggestions] = useState("");
+
+    useEffect(() => {
+        const validate = async () => {
+            const result = await validateRegex(regex);
+            setIsValidRegex(result.is_valid);
+        };
+        validate();
+    }, [regex]);
 
     const handleConvert = async () => {
+        setLoading(true);
         const dfaSvg = await convertRegex(regex);
         setSvg(dfaSvg);
+        setLoading(false);
     };
 
     const handleExplain = async () => {
+        setLoading(true);
         const exp = await explainAutomata(regex);
         setExplanation(exp);
+        setLoading(false);
     };
 
     const handleMinimize = async () => {
+        setLoading(true);
         const minimized = await minimizeAutomaton(automaton);
         setAutomaton(minimized);
         const exported = await exportAutomaton(minimized, 'svg');
         setSvg(exported);
+        setLoading(false);
     };
 
     const handleExport = async (format) => {
+        setLoading(true);
         const exported = await exportAutomaton(automaton, format);
         if (format === 'svg') {
             setSvg(exported);
@@ -42,6 +61,7 @@ const App = () => {
             link.download = `automaton.${format}`;
             link.click();
         }
+        setLoading(false);
     };
 
     const addState = () => {
@@ -62,6 +82,22 @@ const App = () => {
         }
     };
 
+    const handleSuggestions = async () => {
+        setLoading(true);
+        const result = await aiSuggestions(regex);
+        setSuggestions(result.suggestions);
+        setLoading(false);
+    };
+
+    useEffect(() => {
+        if (svg) {
+            const svgElement = d3.select("svg");
+            svgElement.call(d3.zoom().on("zoom", (event) => {
+                svgElement.attr("transform", event.transform);
+            }));
+        }
+    }, [svg]);
+
     return (
         <div className="container">
             <h1>Automata Solver</h1>
@@ -72,9 +108,11 @@ const App = () => {
                     value={regex} 
                     onChange={(e) => setRegex(e.target.value)} 
                     placeholder="Enter Regex" 
+                    className={isValidRegex ? "" : "invalid"}
                 />
-                <button onClick={handleConvert}>Convert to DFA</button>
+                <button onClick={handleConvert} disabled={!isValidRegex}>Convert to DFA</button>
                 <button onClick={handleExplain}>Explain</button>
+                <button onClick={handleSuggestions}>AI Suggestions</button>
             </div>
 
             <div className="section">
@@ -111,8 +149,10 @@ const App = () => {
             </div>
 
             <div className="display-section">
+                {loading && <p>Loading...</p>}
                 {svg && <div dangerouslySetInnerHTML={{ __html: svg }} />}
                 {explanation && <p>{explanation}</p>}
+                {suggestions && <p>{suggestions}</p>}
             </div>
             
             <style jsx>{`
@@ -150,6 +190,9 @@ const App = () => {
                     margin-right: 10px;
                     border: 1px solid #ddd;
                     border-radius: 4px;
+                }
+                .invalid {
+                    border-color: red;
                 }
                 .display-section {
                     margin-top: 20px;

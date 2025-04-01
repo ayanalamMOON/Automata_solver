@@ -4,3 +4,5 @@ automata-lib
 graphviz
 python-multipart
 openai  # for the AI explainer
+regex  # for regex validation
+transformers  # for AI-powered suggestions

@@ -11,4 +11,3 @@ gunicorn>=21.0.0  # For production deployment
 httpx>=0.24.0  # Required for FastAPI testing and async requests
 pytest>=7.0.0  # For testing
 python-dotenv>=1.0.0  # For loading environment variables from .env file
-gemini>=0.1.0  # For Gemini API integration

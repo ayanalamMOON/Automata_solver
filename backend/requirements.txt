@@ -1,8 +1,14 @@
-fastapi
-uvicorn
-automata-lib
-graphviz
-python-multipart
-openai  # for the AI explainer
-regex  # for regex validation
-transformers  # for AI-powered suggestions
+fastapi>=0.100.0
+uvicorn[standard]>=0.23.0
+automata-lib>=7.0.0
+graphviz>=0.20.1
+python-multipart>=0.0.5
+openai>=1.0.0
+regex>=2023.0.0
+transformers>=4.30.0
+python-dotenv>=1.0.0
+gunicorn>=21.0.0  # For production deployment
+httpx>=0.24.0  # Required for FastAPI testing and async requests
+pytest>=7.0.0  # For testing
+python-dotenv>=1.0.0  # For loading environment variables from .env file
+gemini>=0.1.0  # For Gemini API integration

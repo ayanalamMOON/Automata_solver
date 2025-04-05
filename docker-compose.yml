@@ -1,0 +1,27 @@
+# Docker Compose for local development
+version: '3.8'
+
+services:
+  automata-backend:
+    build: ./backend
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ENVIRONMENT=development
+      - PORT=8000
+      - PRODUCTION_FRONTEND_URL=${PRODUCTION_FRONTEND_URL}
+    restart: unless-stopped
+
+  automata-frontend:
+    build: ./frontend
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - automata-backend
+    restart: unless-stopped

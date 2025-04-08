@@ -1,17 +1,36 @@
 import os
 from dotenv import load_dotenv
-import openai  # Import OpenAI library
+import openai
+import redis
+import json
+from datetime import timedelta
 
-# Load environment variables from .env file
+# Load environment variables
 load_dotenv()
+
+# Initialize Redis client
+redis_client = redis.Redis(
+    host=os.environ.get('REDIS_HOST', 'localhost'),
+    port=int(os.environ.get('REDIS_PORT', 6379)),
+    db=0,
+    decode_responses=True
+)
 
 # Initialize OpenAI API client
 api_key = os.environ.get("OPENAI_API_KEY", "")
-openai.api_key = api_key  # Set OpenAI API key
+openai.api_key = api_key
+
+def get_cached_response(cache_key: str) -> str:
+    """Get response from cache if it exists"""
+    return redis_client.get(cache_key)
+
+def set_cached_response(cache_key: str, response: str, expire_time: int = 3600) -> None:
+    """Store response in cache with expiration"""
+    redis_client.setex(cache_key, timedelta(seconds=expire_time), response)
 
 def explain_automata(query: str) -> str:
     """
-    Generate explanations about automata topics using OpenAI's API.
+    Generate explanations about automata topics using OpenAI's API with caching.
     
     Args:
         query: The automata-related query to explain
@@ -23,6 +42,12 @@ def explain_automata(query: str) -> str:
         if not api_key:
             return "API key not configured. Please set the OPENAI_API_KEY environment variable."
         
+        # Check cache first
+        cache_key = f"automata_explanation:{hash(query)}"
+        cached_response = get_cached_response(cache_key)
+        if cached_response:
+            return cached_response
+
         # Prepare context for better automata explanations
         context = """
         You are an expert in automata theory, formal languages, and computational theory.
@@ -41,8 +66,10 @@ def explain_automata(query: str) -> str:
             temperature=0.7
         )
         
-        # Extract and return the explanation
-        return response.choices[0].message.content
+        explanation = response.choices[0].message.content
+        # Cache the response
+        set_cached_response(cache_key, explanation)
+        return explanation
         
     except Exception as e:
         return f"Error generating explanation: {str(e)}"

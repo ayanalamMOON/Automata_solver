@@ -1,0 +1,144 @@
+.automata-builder {
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.builder-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    padding: 15px;
+    background-color: #f5f5f5;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.new-automata {
+    display: flex;
+    gap: 10px;
+}
+
+.new-automata button {
+    padding: 8px 16px;
+    background-color: #4CAF50;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.new-automata button:hover {
+    background-color: #45a049;
+}
+
+.action-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.action-controls select {
+    padding: 8px;
+    border-radius: 4px;
+    border: 1px solid #ddd;
+}
+
+.action-controls form {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.action-controls input[type="text"] {
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.action-controls label {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.history-controls {
+    display: flex;
+    gap: 10px;
+}
+
+.history-controls button {
+    padding: 8px 16px;
+    background-color: #2196F3;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.history-controls button:disabled {
+    background-color: #cccccc;
+    cursor: not-allowed;
+}
+
+.history-controls button:hover:not(:disabled) {
+    background-color: #1976D2;
+}
+
+.import-export {
+    display: flex;
+    gap: 10px;
+}
+
+.import-export button {
+    padding: 8px 16px;
+    background-color: #9C27B0;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.import-export button:hover {
+    background-color: #7B1FA2;
+}
+
+.visualization {
+    padding: 20px;
+    background-color: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    overflow-x: auto;
+}
+
+.simulation-results {
+    padding: 15px;
+    background-color: #E3F2FD;
+    border-radius: 8px;
+    margin-top: 15px;
+}
+
+.simulation-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.step {
+    display: flex;
+    gap: 15px;
+    padding: 10px;
+    background-color: white;
+    border-radius: 4px;
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.step span {
+    font-family: monospace;
+}

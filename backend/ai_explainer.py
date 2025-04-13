@@ -95,7 +95,8 @@ def with_openai_retry(max_retries: int = 3, backoff_factor: float = 0.1):
                     wait_time = backoff_factor * (2 ** attempt)
                     time.sleep(wait_time)
             return None
-        return decorator
+        return wrapper
+    return decorator
 
 @with_openai_retry()
 def explain_automata(query: str) -> str:

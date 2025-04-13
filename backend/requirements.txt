@@ -24,3 +24,5 @@ slowapi>=0.1.8  # For rate limiting
 prometheus-client>=0.17.0  # For metrics
 python-jose[cryptography]>=3.3.0  # For JWT handling
 passlib[bcrypt]>=1.7.4  # For password hashing
+Pillow>=10.0.0  # For image processing
+pytesseract>=0.3.10  # For OCR capabilities

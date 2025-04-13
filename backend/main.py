@@ -18,8 +18,9 @@ import pytesseract
 import io
 import os
 import logging
+import asyncio
 from automata.fa.dfa import DFA
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Set
 import uvicorn
 from security import get_current_active_user, User, require_admin, Token, create_access_token, UserInDB, get_user, ACCESS_TOKEN_EXPIRE_MINUTES, verify_password
 import redis
@@ -36,6 +37,116 @@ from slowapi.errors import RateLimitExceeded
 from starlette.status import HTTP_429_TOO_MANY_REQUESTS
 from datetime import timedelta
 from fastapi.security import OAuth2PasswordRequestForm
+
+# Define missing automaton analysis functions
+def is_deterministic(automaton: Dict) -> bool:
+    """
+    Check if an automaton is deterministic.
+    A DFA should have exactly one transition for each state-symbol pair.
+    """
+    for state in automaton['states']:
+        if state not in automaton['transitions']:
+            return False
+        
+        for symbol in automaton['alphabet']:
+            # Get transitions for this state and symbol
+            transitions = automaton['transitions'].get(state, {}).get(symbol, None)
+            
+            # DFA must have exactly one transition for each state-symbol pair
+            if not transitions or (isinstance(transitions, list) and len(transitions) != 1):
+                return False
+    
+    return True
+
+def is_minimal(automaton: Dict) -> bool:
+    """
+    Check if an automaton is minimal.
+    A minimal DFA has no unreachable states and no equivalent states.
+    """
+    # First check if it's deterministic
+    if not is_deterministic(automaton):
+        return False
+    
+    # Check for reachable states
+    reachable_states = get_reachable_states(automaton)
+    if len(reachable_states) < len(automaton['states']):
+        return False
+    
+    # Check for equivalent states (simplified check)
+    for i, state1 in enumerate(automaton['states']):
+        for state2 in automaton['states'][i+1:]:
+            if are_equivalent_states(automaton, state1, state2):
+                return False
+    
+    return True
+
+def is_complete(automaton: Dict) -> bool:
+    """
+    Check if an automaton is complete.
+    A complete DFA has a transition defined for every state-symbol pair.
+    """
+    for state in automaton['states']:
+        transitions = automaton['transitions'].get(state, {})
+        for symbol in automaton['alphabet']:
+            if symbol not in transitions:
+                return False
+    
+    return True
+
+def get_reachable_states(automaton: Dict) -> Set[str]:
+    """Get all states reachable from the start state."""
+    reachable = set()
+    to_visit = [automaton['start_state']]
+    
+    while to_visit:
+        current = to_visit.pop(0)
+        if current in reachable:
+            continue
+        
+        reachable.add(current)
+        
+        # Add all states reachable from current state
+        transitions = automaton['transitions'].get(current, {})
+        for symbol, next_states in transitions.items():
+            if isinstance(next_states, list):
+                for next_state in next_states:
+                    if next_state not in reachable:
+                        to_visit.append(next_state)
+            elif isinstance(next_states, str) and next_states not in reachable:
+                to_visit.append(next_states)
+    
+    return reachable
+
+def are_equivalent_states(automaton: Dict, state1: str, state2: str) -> bool:
+    """
+    Check if two states are equivalent.
+    Two states are equivalent if they have the same acceptance status and
+    transitioning on any symbol leads to equivalent states.
+    
+    This is a simplified version that only checks acceptance status and immediate transitions.
+    """
+    # Different acceptance status means not equivalent
+    in_accept1 = state1 in automaton['accept_states']
+    in_accept2 = state2 in automaton['accept_states']
+    if in_accept1 != in_accept2:
+        return False
+    
+    # Check transitions
+    transitions1 = automaton['transitions'].get(state1, {})
+    transitions2 = automaton['transitions'].get(state2, {})
+    
+    # Must have same symbols defined
+    if set(transitions1.keys()) != set(transitions2.keys()):
+        return False
+        
+    # For each symbol, must transition to the same state
+    for symbol in transitions1:
+        next1 = transitions1.get(symbol)
+        next2 = transitions2.get(symbol)
+        if next1 != next2:
+            return False
+            
+    return True
 
 # Configure logging
 logging.basicConfig(
@@ -159,25 +270,43 @@ async def error_handling(request: Request, call_next):
 
 # Add rate limiting to all routes
 @app.middleware("http")
-@limiter.limit(os.getenv('RATE_LIMIT_PER_MINUTE', '60') + "/minute")
 async def rate_limit_middleware(request: Request, call_next):
     ACTIVE_CONNECTIONS.inc()
     try:
-        with REQUEST_LATENCY.labels(
-            method=request.method,
-            endpoint=request.url.path
-        ).time():
-            # Skip rate limiting for test endpoints in test environment
-            if 'test' in str(request.url.path).lower() and os.getenv('TESTING') == 'true':
-                return await call_next(request)
-                
+        # Skip rate limiting for test environment completely
+        if os.getenv('TESTING') == 'true':
             response = await call_next(request)
-            REQUEST_COUNT.labels(
+            with REQUEST_LATENCY.labels(
                 method=request.method,
-                endpoint=request.url.path,
-                status=response.status_code
-            ).inc()
-        return response
+                endpoint=request.url.path
+            ).time():
+                REQUEST_COUNT.labels(
+                    method=request.method,
+                    endpoint=request.url.path,
+                    status=response.status_code
+                ).inc()
+            return response
+        
+        # Apply rate limiting for non-test environments
+        try:
+            with REQUEST_LATENCY.labels(
+                method=request.method,
+                endpoint=request.url.path
+            ).time():
+                # Apply the rate limit
+                limiter_key = get_remote_address(request)
+                limiter_rate = os.getenv('RATE_LIMIT_PER_MINUTE', '60') + "/minute"
+                await limiter.check(limiter_key, limiter_rate)
+                
+                response = await call_next(request)
+                REQUEST_COUNT.labels(
+                    method=request.method,
+                    endpoint=request.url.path,
+                    status=response.status_code
+                ).inc()
+            return response
+        except RateLimitExceeded as e:
+            return _rate_limit_exceeded_handler(request, e)
     finally:
         ACTIVE_CONNECTIONS.dec()
 

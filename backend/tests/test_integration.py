@@ -92,9 +92,9 @@ def test_batch_processing(authorized_client):
     assert "results" in data
     assert data["success_count"] > 0
 
-def test_automata_analysis(client):
+def test_automata_analysis(authorized_client):
     """Test automata analysis endpoint"""
-    response = client.post("/api/analyze", json={
+    response = authorized_client.post("/api/analyze", json={
         "automaton": {
             "states": ["q0", "q1"],
             "alphabet": ["0", "1"],
@@ -143,9 +143,9 @@ def test_caching(client):
     # Both responses should be identical
     assert response1.json() == response2.json()
 
-def test_bulk_minimize(client):
+def test_bulk_minimize(authorized_client):
     """Test bulk minimization with known reducible automaton"""
-    response = client.post("/api/bulk/minimize", json={
+    response = authorized_client.post("/api/bulk/minimize", json={
         "items": [{
             "automaton": {
                 "states": ["q0", "q1", "q2"],  # q1 and q2 are equivalent

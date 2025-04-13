@@ -238,6 +238,95 @@ class DFA(AutomataBase):
         except Exception as e:
             logger.error(f"Simulation failed: {str(e)}")
             raise AutomataError("Simulation failed")
+    
+    def simulate_step_by_step(self, input_string: str) -> Dict:
+        """
+        Simulate the DFA on an input string with detailed step-by-step information
+        
+        Args:
+            input_string: The input string to simulate
+            
+        Returns:
+            Dictionary with execution steps, each with current state, input symbol,
+            next state, processed input, remaining input, and acceptance status
+            
+        Raises:
+            AutomataError: If simulation fails
+        """
+        try:
+            if not self.states:
+                raise AutomataError("No states in automaton")
+            
+            current = next((s for s in self.states.values() if s.is_initial), None)
+            if not current:
+                raise AutomataError("No initial state defined")
+                
+            steps = []
+            processed = ""
+            remaining = input_string
+            steps.append({
+                "step": 0,
+                "current_state": current.name,
+                "input_symbol": None,
+                "next_state": None,
+                "processed_input": processed,
+                "remaining_input": remaining,
+                "is_accepting": current.is_final
+            })
+            
+            for i, symbol in enumerate(input_string):
+                if symbol not in self.alphabet:
+                    raise AutomataError(f"Invalid symbol in input: {symbol}")
+                    
+                if (current.name, symbol) not in self.transitions:
+                    # Add the failure step
+                    steps.append({
+                        "step": i + 1,
+                        "current_state": current.name,
+                        "input_symbol": symbol,
+                        "next_state": None,
+                        "processed_input": processed + symbol,
+                        "remaining_input": remaining[1:] if len(remaining) > 1 else "",
+                        "is_accepting": False,
+                        "is_error": True,
+                        "error_message": f"No transition from {current.name} with symbol {symbol}"
+                    })
+                    return {
+                        "accepted": False,
+                        "steps": steps,
+                        "final_state": current.name,
+                        "is_accepting_state": False
+                    }
+                    
+                next_state_name = self.transitions[(current.name, symbol)]
+                next_state = self.states[next_state_name]
+                processed += symbol
+                remaining = remaining[1:] if len(remaining) > 1 else ""
+                
+                steps.append({
+                    "step": i + 1,
+                    "current_state": current.name,
+                    "input_symbol": symbol,
+                    "next_state": next_state_name,
+                    "processed_input": processed,
+                    "remaining_input": remaining,
+                    "is_accepting": next_state.is_final
+                })
+                
+                current = next_state
+            
+            return {
+                "accepted": current.is_final,
+                "steps": steps,
+                "final_state": current.name,
+                "is_accepting_state": current.is_final
+            }
+            
+        except AutomataError:
+            raise
+        except Exception as e:
+            logger.error(f"Step-by-step simulation failed: {str(e)}")
+            raise AutomataError("Step-by-step simulation failed")
 
 class NFA(AutomataBase):
     def __init__(self, name: str):

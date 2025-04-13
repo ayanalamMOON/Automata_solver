@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './AutomataBuilder.css';
+import StepVisualizer from './StepVisualizer';
 
 const AutomataBuilder = () => {
     const [builderState, setBuilderState] = useState(null);
@@ -16,6 +17,8 @@ const AutomataBuilder = () => {
     });
     const [simulationInput, setSimulationInput] = useState('');
     const [simulationResult, setSimulationResult] = useState(null);
+    const [stepVisualizationData, setStepVisualizationData] = useState(null);
+    const [showStepVisualizer, setShowStepVisualizer] = useState(false);
 
     const startNewAutomata = async (type) => {
         try {
@@ -73,6 +76,51 @@ const AutomataBuilder = () => {
         performAction('simulate', { input_string: simulationInput });
     };
 
+    const handleStepByStepSimulation = async (e) => {
+        e.preventDefault();
+
+        if (!builderState || !simulationInput) return;
+
+        try {
+            const automataData = {
+                states: builderState.states.map(s => s.name),
+                alphabet: Array.from(new Set(builderState.transitions.map(t => t.symbol))),
+                transitions: builderState.transitions.reduce((acc, t) => {
+                    if (!acc[t.from]) acc[t.from] = {};
+                    acc[t.from][t.symbol] = t.to;
+                    return acc;
+                }, {}),
+                start_state: builderState.states.find(s => s.is_initial)?.name || '',
+                accept_states: builderState.states.filter(s => s.is_final).map(s => s.name),
+                input_string: simulationInput
+            };
+
+            const response = await fetch('/api/simulate/step_by_step', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(automataData),
+            });
+
+            if (!response.ok) {
+                throw new Error('Failed to perform step-by-step simulation');
+            }
+
+            const data = await response.json();
+
+            if (data.error) {
+                console.error('Simulation error:', data.error);
+                return;
+            }
+
+            setStepVisualizationData(data);
+            setShowStepVisualizer(true);
+        } catch (error) {
+            console.error('Error in step-by-step simulation:', error);
+        }
+    };
+
     const exportAutomata = async (format) => {
         try {
             const response = await fetch('/api/export', {
@@ -87,8 +135,7 @@ const AutomataBuilder = () => {
                 }),
             });
             const data = await response.json();
-            
-            // Create download link
+
             const blob = new Blob([data[format]], { type: 'text/plain' });
             const url = window.URL.createObjectURL(blob);
             const a = document.createElement('a');
@@ -206,6 +253,13 @@ const AutomataBuilder = () => {
                                 onChange={(e) => setSimulationInput(e.target.value)}
                             />
                             <button type="submit">Simulate</button>
+                            <button 
+                                type="button" 
+                                onClick={handleStepByStepSimulation}
+                                className="step-by-step-btn"
+                            >
+                                Step-by-Step
+                            </button>
                         </form>
                     )}
                 </div>
@@ -247,7 +301,7 @@ const AutomataBuilder = () => {
                 </div>
             )}
 
-            {simulationResult && (
+            {!showStepVisualizer && simulationResult && (
                 <div className="simulation-results">
                     <h3>Simulation Results</h3>
                     <p>Accepted: {simulationResult.accepted ? 'Yes' : 'No'}</p>
@@ -261,6 +315,18 @@ const AutomataBuilder = () => {
                             </div>
                         ))}
                     </div>
+                </div>
+            )}
+
+            {showStepVisualizer && stepVisualizationData && (
+                <div className="step-visualization-container">
+                    <button 
+                        className="close-visualizer"
+                        onClick={() => setShowStepVisualizer(false)}
+                    >
+                        ✖ Close Step Visualizer
+                    </button>
+                    <StepVisualizer simulationData={stepVisualizationData} />
                 </div>
             )}
         </div>

@@ -616,6 +616,31 @@ async def analyze_automaton(
     
     return results
 
+@app.post("/api/simulate/step_by_step")
+async def simulate_step_by_step(data: AutomatonData):
+    """
+    Simulate an automaton step by step on an input string.
+    
+    Returns detailed step-by-step execution information for visualization.
+    """
+    logger.info(f"Running step-by-step simulation")
+    try:
+        # Create DFA object
+        dfa = AutomataSolver._create_dfa({
+            "name": "Simulation DFA",
+            "states": [{"name": s, "initial": s == data.start_state, "final": s in data.accept_states} for s in data.states],
+            "transitions": [{"from": from_state, "symbol": symbol, "to": to_state} 
+                           for from_state, trans in data.transitions.items() 
+                           for symbol, to_state in trans.items()]
+        })
+        
+        # Run step by step simulation
+        result = dfa.simulate_step_by_step(data.input_string)
+        return result
+    except Exception as e:
+        logger.error(f"Step-by-step simulation failed: {str(e)}")
+        return {"error": str(e)}
+
 @app.get(
     "/api/admin/stats",
     summary="Get system statistics",

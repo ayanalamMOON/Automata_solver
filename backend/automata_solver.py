@@ -261,9 +261,13 @@ class DFA(AutomataBase):
             if not current:
                 raise AutomataError("No initial state defined")
                 
+            # Initialize step tracking
             steps = []
             processed = ""
             remaining = input_string
+            active_transitions = []
+
+            # Add initial state
             steps.append({
                 "step": 0,
                 "current_state": current.name,
@@ -271,15 +275,18 @@ class DFA(AutomataBase):
                 "next_state": None,
                 "processed_input": processed,
                 "remaining_input": remaining,
-                "is_accepting": current.is_final
+                "is_accepting": current.is_final,
+                "active_state": current.name,
+                "active_transitions": [],
+                "visualization_state": {
+                    "nodes": [{"id": s.name, "active": s.name == current.name, "accepting": s.is_final} for s in self.states.values()],
+                    "edges": [],
+                    "stack": []  # For future PDA support
+                }
             })
             
             for i, symbol in enumerate(input_string):
                 if symbol not in self.alphabet:
-                    raise AutomataError(f"Invalid symbol in input: {symbol}")
-                    
-                if (current.name, symbol) not in self.transitions:
-                    # Add the failure step
                     steps.append({
                         "step": i + 1,
                         "current_state": current.name,
@@ -289,19 +296,63 @@ class DFA(AutomataBase):
                         "remaining_input": remaining[1:] if len(remaining) > 1 else "",
                         "is_accepting": False,
                         "is_error": True,
-                        "error_message": f"No transition from {current.name} with symbol {symbol}"
+                        "error_message": f"Invalid symbol '{symbol}' not in alphabet",
+                        "active_state": current.name,
+                        "active_transitions": [],
+                        "visualization_state": {
+                            "nodes": [{"id": s.name, "active": s.name == current.name, 
+                                     "accepting": s.is_final, "error": s.name == current.name} 
+                                    for s in self.states.values()],
+                            "edges": [],
+                            "error": True
+                        }
                     })
                     return {
                         "accepted": False,
                         "steps": steps,
                         "final_state": current.name,
-                        "is_accepting_state": False
+                        "is_accepting_state": False,
+                        "error": f"Invalid symbol '{symbol}' not in alphabet"
+                    }
+                    
+                if (current.name, symbol) not in self.transitions:
+                    # Add the failure step with visual state
+                    steps.append({
+                        "step": i + 1,
+                        "current_state": current.name,
+                        "input_symbol": symbol,
+                        "next_state": None,
+                        "processed_input": processed + symbol,
+                        "remaining_input": remaining[1:] if len(remaining) > 1 else "",
+                        "is_accepting": False,
+                        "is_error": True,
+                        "error_message": f"No transition from {current.name} with symbol {symbol}",
+                        "active_state": current.name,
+                        "active_transitions": [],
+                        "visualization_state": {
+                            "nodes": [{"id": s.name, "active": s.name == current.name, 
+                                     "accepting": s.is_final, "error": s.name == current.name} 
+                                    for s in self.states.values()],
+                            "edges": [{"from": current.name, "to": t, "symbol": sym, "active": False}
+                                    for (src, sym), t in self.transitions.items()],
+                            "error": True
+                        }
+                    })
+                    return {
+                        "accepted": False,
+                        "steps": steps,
+                        "final_state": current.name,
+                        "is_accepting_state": False,
+                        "error": f"No transition from {current.name} with symbol {symbol}"
                     }
                     
                 next_state_name = self.transitions[(current.name, symbol)]
                 next_state = self.states[next_state_name]
                 processed += symbol
                 remaining = remaining[1:] if len(remaining) > 1 else ""
+                
+                # Update active transitions for visualization
+                active_transitions = [(current.name, next_state_name, symbol)]
                 
                 steps.append({
                     "step": i + 1,
@@ -310,7 +361,19 @@ class DFA(AutomataBase):
                     "next_state": next_state_name,
                     "processed_input": processed,
                     "remaining_input": remaining,
-                    "is_accepting": next_state.is_final
+                    "is_accepting": next_state.is_final,
+                    "active_state": next_state_name,
+                    "active_transitions": active_transitions,
+                    "visualization_state": {
+                        "nodes": [{"id": s.name, 
+                                 "active": s.name == next_state_name,
+                                 "accepting": s.is_final,
+                                 "previous": s.name == current.name}
+                                for s in self.states.values()],
+                        "edges": [{"from": src, "to": t, "symbol": sym,
+                                 "active": (src, t, sym) in active_transitions}
+                                for (src, sym), t in self.transitions.items()]
+                    }
                 })
                 
                 current = next_state
@@ -321,12 +384,6 @@ class DFA(AutomataBase):
                 "final_state": current.name,
                 "is_accepting_state": current.is_final
             }
-            
-        except AutomataError:
-            raise
-        except Exception as e:
-            logger.error(f"Step-by-step simulation failed: {str(e)}")
-            raise AutomataError("Step-by-step simulation failed")
 
 class NFA(AutomataBase):
     def __init__(self, name: str):

@@ -1,0 +1,79 @@
+.automata-visualizer {
+  width: 100%;
+  height: 400px;
+  background-color: #ffffff;
+  border-radius: 8px;
+  margin-bottom: 20px;
+}
+
+.automata-node {
+  padding: 15px;
+  border-radius: 50%;
+  min-width: 50px;
+  min-height: 50px;
+  background-color: #f0f0f0;
+  border: 2px solid #666;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+}
+
+.automata-node.active {
+  background-color: #e3f2fd;
+  border-color: #2196f3;
+  box-shadow: 0 0 0 4px rgba(33, 150, 243, 0.3);
+}
+
+.automata-node.accepting {
+  border-width: 4px;
+  border-style: double;
+}
+
+.node-label {
+  font-size: 14px;
+  font-weight: bold;
+  color: #333;
+}
+
+.accepting-marker {
+  position: absolute;
+  top: -10px;
+  right: -10px;
+  color: #ffd700;
+  font-size: 20px;
+  text-shadow: 0 0 3px rgba(0, 0, 0, 0.3);
+}
+
+.react-flow__edge {
+  stroke: #666;
+}
+
+.react-flow__edge.active-edge {
+  stroke: #2196f3;
+  stroke-width: 2;
+}
+
+.react-flow__edge-text {
+  font-size: 12px;
+  fill: #666;
+}
+
+.react-flow__edge.active-edge .react-flow__edge-text {
+  fill: #2196f3;
+  font-weight: bold;
+}
+
+.react-flow__handle {
+  width: 8px;
+  height: 8px;
+  background-color: #666;
+}
+
+.automata-node.active .react-flow__handle {
+  background-color: #2196f3;
+}
+
+.react-flow__controls {
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}

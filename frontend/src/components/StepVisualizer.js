@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import AutomataVisualizer from './AutomataVisualizer';
 import './StepVisualizer.css';
 
 const StepVisualizer = ({ simulationData }) => {
@@ -6,7 +7,6 @@ const StepVisualizer = ({ simulationData }) => {
   const steps = simulationData?.steps || [];
   const totalSteps = steps.length;
   
-  // No data to visualize
   if (!simulationData || !steps.length) {
     return <div className="step-visualizer empty">No simulation data available</div>;
   }
@@ -56,63 +56,73 @@ const StepVisualizer = ({ simulationData }) => {
         </button>
       </div>
 
-      <div className="step-details">
-        <div className="state-info">
-          <div className="state-label">Current State:</div>
-          <div className={`state-value ${step.is_accepting ? 'accepting-state' : ''}`}>
-            {step.current_state}
-            {step.is_accepting && <span className="state-marker">⭐</span>}
-          </div>
+      <div className="step-content">
+        <div className="visualization-container">
+          <AutomataVisualizer visualizationState={step.visualization_state} />
         </div>
 
-        {step.input_symbol !== null && (
-          <div className="transition-info">
-            <span className="symbol-info">
-              Reading: <strong>{step.input_symbol || 'ε'}</strong>
-            </span>
-            <span className="transition-arrow">→</span>
-            <span className={`next-state ${step.is_accepting ? 'accepting-state' : ''}`}>
-              {step.next_state || 'None'}
-            </span>
+        <div className="step-details">
+          <div className="state-info">
+            <div className="state-label">Current State:</div>
+            <div className={`state-value ${step.is_accepting ? 'accepting-state' : ''}`}>
+              {step.current_state}
+              {step.is_accepting && <span className="state-marker">⭐</span>}
+            </div>
           </div>
-        )}
 
-        <div className="tape-visualization">
-          <div className="processed-input">
-            {step.processed_input}
+          {step.input_symbol !== null && (
+            <div className="transition-info">
+              <span className="symbol-info">
+                Reading: <strong>{step.input_symbol || 'ε'}</strong>
+              </span>
+              <span className="transition-arrow">→</span>
+              <span className={`next-state ${step.is_accepting ? 'accepting-state' : ''}`}>
+                {step.next_state || 'None'}
+              </span>
+            </div>
+          )}
+
+          <div className="tape-visualization">
+            <div className="processed-input">
+              {step.processed_input}
+            </div>
+            <div className="head-position">↓</div>
+            <div className="remaining-input">
+              {step.remaining_input}
+            </div>
           </div>
-          <div className="head-position">↓</div>
-          <div className="remaining-input">
-            {step.remaining_input}
-          </div>
+
+          {isLastStep && (
+            <div className={`final-result ${accepted ? 'accepted' : 'rejected'}`}>
+              String {accepted ? 'ACCEPTED' : 'REJECTED'}
+            </div>
+          )}
+
+          {step.is_error && (
+            <div className="error-message">
+              {step.error_message}
+            </div>
+          )}
         </div>
-
-        {isLastStep && (
-          <div className={`final-result ${accepted ? 'accepted' : 'rejected'}`}>
-            String {accepted ? 'ACCEPTED' : 'REJECTED'}
-          </div>
-        )}
-
-        {step.is_error && (
-          <div className="error-message">
-            {step.error_message}
-          </div>
-        )}
       </div>
 
       <div className="step-controls">
         <button
           className="auto-play-button"
           onClick={() => {
-            const timer = setInterval(() => {
-              setCurrentStep(prev => {
-                if (prev >= totalSteps - 1) {
-                  clearInterval(timer);
-                  return prev;
-                }
-                return prev + 1;
-              });
-            }, 800);
+            let timer;
+            const startAutoPlay = () => {
+              timer = setInterval(() => {
+                setCurrentStep(prev => {
+                  if (prev >= totalSteps - 1) {
+                    clearInterval(timer);
+                    return prev;
+                  }
+                  return prev + 1;
+                });
+              }, 800);
+            };
+            startAutoPlay();
           }}
           disabled={isLastStep}
         >

@@ -424,6 +424,38 @@ class AutomataSolver:
             logger.error(f"Failed to create DFA: {str(e)}")
             raise ValidationError(f"Invalid DFA definition: {str(e)}")
 
+    @staticmethod
+    def is_deterministic(automaton: Dict) -> bool:
+        """Check if an automaton is deterministic"""
+        transitions = {}
+        for state in automaton['states']:
+            for symbol in automaton['alphabet']:
+                count = sum(1 for t in automaton['transitions'].items() 
+                          if t[0] == state and t[1].get(symbol))
+                if count != 1:
+                    return False
+        return True
+
+    @staticmethod
+    def is_minimal(automaton: Dict) -> bool:
+        """Check if an automaton is minimal"""
+        # Convert to DFA and minimize
+        dfa = AutomataSolver._create_dfa(automaton)
+        minimized = minimize_automaton(dfa)
+        
+        # Compare state count
+        return len(minimized.states) >= len(automaton['states'])
+
+    @staticmethod
+    def is_complete(automaton: Dict) -> bool:
+        """Check if an automaton is complete"""
+        for state in automaton['states']:
+            for symbol in automaton['alphabet']:
+                if not any(t[0] == state and symbol in t[1] 
+                         for t in automaton['transitions'].items()):
+                    return False
+        return True
+
 def validate_regex(regex: str) -> bool:
     """
     Validate a regular expression
@@ -862,3 +894,65 @@ class BatchProcessor:
             raise AutomataError("Failed to process batch submissions")
         
         return results
+
+def is_deterministic(automaton):
+    """Check if an automaton is deterministic"""
+    # Check if each state has exactly one transition for each symbol
+    for state in automaton['states']:
+        if state not in automaton['transitions']:
+            return False
+        for symbol in automaton['alphabet']:
+            transitions = automaton['transitions'][state].get(symbol, [])
+            if not isinstance(transitions, str) or len(transitions) != 1:
+                return False
+    return True
+
+def is_minimal(automaton):
+    """Check if a DFA is minimal"""
+    # First ensure it's deterministic
+    if not is_deterministic(automaton):
+        return False
+        
+    # Get all reachable states from start state
+    reachable = get_reachable_states(automaton)
+    
+    # Check if all states are reachable
+    if len(reachable) != len(automaton['states']):
+        return False
+        
+    # Check for equivalent states
+    for s1 in automaton['states']:
+        for s2 in automaton['states']:
+            if s1 < s2:  # Check each pair only once
+                if are_states_equivalent(automaton, s1, s2):
+                    return False
+    return True
+
+def get_reachable_states(automaton):
+    """Get all states reachable from the start state"""
+    reachable = {automaton['start_state']}
+    queue = [automaton['start_state']]
+    
+    while queue:
+        state = queue.pop(0)
+        for symbol in automaton['alphabet']:
+            next_state = automaton['transitions'][state].get(symbol)
+            if next_state and next_state not in reachable:
+                reachable.add(next_state)
+                queue.append(next_state)
+    return reachable
+
+def are_states_equivalent(automaton, s1, s2):
+    """Check if two states are equivalent"""
+    # States are equivalent if they can't be distinguished by any input string
+    # Start with basic distinguishability (accepting vs non-accepting)
+    if (s1 in automaton['accept_states']) != (s2 in automaton['accept_states']):
+        return False
+        
+    # Check transitions for all input symbols
+    for symbol in automaton['alphabet']:
+        next1 = automaton['transitions'][s1].get(symbol)
+        next2 = automaton['transitions'][s2].get(symbol)
+        if next1 != next2:
+            return False
+    return True

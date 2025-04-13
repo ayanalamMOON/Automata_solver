@@ -1,17 +1,27 @@
-from prometheus_client import Counter, Histogram, Gauge, Summary
+from prometheus_client import Counter, Histogram, Gauge, Summary, CollectorRegistry
 import time
+import os
+
+# Create a separate registry for tests
+test_registry = CollectorRegistry()
+
+def get_registry():
+    """Get the appropriate registry based on environment"""
+    return test_registry if os.getenv('TESTING') == 'true' else None
 
 # Request metrics
 HTTP_REQUESTS_TOTAL = Counter(
     'http_requests_total',
     'Total HTTP requests',
-    ['method', 'endpoint', 'status']
+    ['method', 'endpoint', 'status'],
+    registry=get_registry()
 )
 
 HTTP_REQUEST_DURATION_SECONDS = Histogram(
     'http_request_duration_seconds',
     'HTTP request latency',
-    ['method', 'endpoint']
+    ['method', 'endpoint'],
+    registry=get_registry()
 )
 
 # Business metrics
@@ -41,7 +51,8 @@ CACHE_MISSES_TOTAL = Counter(
 # Resource metrics
 ACTIVE_CONNECTIONS = Gauge(
     'active_connections',
-    'Number of active connections'
+    'Number of active connections',
+    registry=get_registry()
 )
 
 MEMORY_USAGE_BYTES = Gauge(
@@ -81,6 +92,11 @@ ERROR_COUNTS_TOTAL = Counter(
     'Total error counts',
     ['error_type']
 )
+
+def reset_metrics():
+    """Reset all metrics - useful for testing"""
+    if os.getenv('TESTING') == 'true':
+        test_registry.clear()
 
 class MetricsMiddleware:
     """Middleware to collect HTTP request metrics"""

@@ -159,7 +159,7 @@ async def error_handling(request: Request, call_next):
 
 # Add rate limiting to all routes
 @app.middleware("http")
-@limiter.limit("60/minute")
+@limiter.limit(os.getenv('RATE_LIMIT_PER_MINUTE', '60') + "/minute")
 async def rate_limit_middleware(request: Request, call_next):
     ACTIVE_CONNECTIONS.inc()
     try:
@@ -167,6 +167,10 @@ async def rate_limit_middleware(request: Request, call_next):
             method=request.method,
             endpoint=request.url.path
         ).time():
+            # Skip rate limiting for test endpoints in test environment
+            if 'test' in str(request.url.path).lower() and os.getenv('TESTING') == 'true':
+                return await call_next(request)
+                
             response = await call_next(request)
             REQUEST_COUNT.labels(
                 method=request.method,
@@ -381,20 +385,48 @@ async def bulk_minimize(
     results = []
     success_count = 0
     failed_count = 0
+    minimized_count = 0
     
-    for item in request.items:
+    async def process_item(item):
         try:
+            original_states = len(item["automaton"]["states"])
             minimized = minimize_automaton(item["automaton"])
-            results.append({"success": True, "minimized": minimized})
-            success_count += 1
+            minimized_states = len(minimized.states)
+            was_minimized = minimized_states < original_states
+            
+            return {
+                "success": True,
+                "minimized": minimized.dict() if hasattr(minimized, 'dict') else minimized,
+                "was_minimized": was_minimized,
+                "states_reduced": original_states - minimized_states
+            }
         except Exception as e:
-            results.append({"success": False, "error": str(e)})
+            return {"success": False, "error": str(e)}
+
+    if request.parallel:
+        # Process items in parallel using asyncio.gather
+        processed = await asyncio.gather(*[process_item(item) for item in request.items])
+        results.extend(processed)
+    else:
+        # Process items sequentially
+        for item in request.items:
+            result = await process_item(item)
+            results.append(result)
+
+    # Count successes, failures and minimizations
+    for result in results:
+        if result["success"]:
+            success_count += 1
+            if result.get("was_minimized", False):
+                minimized_count += 1
+        else:
             failed_count += 1
     
     return {
         "results": results,
         "success_count": success_count,
-        "failed_count": failed_count
+        "failed_count": failed_count,
+        "minimized_count": minimized_count
     }
 
 @app.post(

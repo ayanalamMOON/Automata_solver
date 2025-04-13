@@ -29,7 +29,13 @@ def clear_redis():
 @pytest.fixture
 def authorized_client():
     """Fixture for authorized client"""
-    token = "valid_token"  # Replace with a valid token for testing
+    # Get token using test credentials
+    response = client.post("/token", data={
+        "username": "johndoe",
+        "password": "secret"
+    })
+    assert response.status_code == 200
+    token = response.json()["access_token"]
     return TestClient(app, headers={"Authorization": f"Bearer {token}"})
 
 def test_health_check(client):
@@ -116,11 +122,20 @@ def test_error_handling(client):
 
 def test_rate_limiting(client):
     """Test rate limiting middleware"""
-    # Make multiple requests quickly
-    responses = [
-        client.get("/health")
-        for _ in range(int(os.getenv('RATE_LIMIT_PER_MINUTE', 60)) + 1)
-    ]
+    # Make a small batch of requests quickly
+    test_batch_size = 5
+    responses = []
+    
+    # Make initial requests
+    for _ in range(test_batch_size):
+        responses.append(client.get("/health"))
+        
+    # All initial requests should succeed
+    assert all(r.status_code == 200 for r in responses)
+    
+    # Now make many requests quickly to trigger rate limit
+    for _ in range(60):  # Force rate limit
+        responses.append(client.get("/health"))
     
     # At least one request should be rate limited
     assert any(r.status_code == 429 for r in responses)
@@ -169,9 +184,9 @@ def test_bulk_minimize(authorized_client):
 
 def test_metrics_collection(client):
     """Test that metrics are being collected"""
-    # Make some requests to generate metrics
-    client.get("/health")
-    client.get("/metrics")
+    # Make a controlled number of requests
+    for _ in range(3):
+        client.get("/health")
     
     # Check metrics endpoint
     response = client.get("/metrics")

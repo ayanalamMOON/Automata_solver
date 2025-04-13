@@ -145,8 +145,15 @@ async def error_handling(request: Request, call_next):
                 content={"detail": str(e.detail)},
                 headers=e.headers
             )
+        # Handle validation errors and known error cases as 400
+        if any(err in str(e).lower() for err in ["validation", "invalid", "malformed", "error"]):
+            return JSONResponse(
+                status_code=400,
+                content={"detail": str(e)},
+            )
+        # Otherwise return 500 for unexpected errors
         return JSONResponse(
-            status_code=400 if "validation" in str(e).lower() else 500,
+            status_code=500,
             content={"detail": "Internal server error", "message": str(e)},
         )
 

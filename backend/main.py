@@ -519,18 +519,43 @@ async def bulk_minimize(
     
     async def process_item(item):
         try:
-            original_states = len(item["automaton"]["states"])
-            minimized = minimize_automaton(item["automaton"])
-            minimized_states = len(minimized.states)
-            was_minimized = minimized_states < original_states
+            # Get the original automaton and count its states
+            original_automaton = item["automaton"]
+            original_states_count = len(original_automaton["states"])
+            
+            # Perform minimization
+            minimized_result = minimize_automaton(original_automaton)
+            
+            # Extract the minimized automaton and count its states
+            # The minimized result might be a DFA object or a dictionary
+            if hasattr(minimized_result, 'states') and isinstance(minimized_result.states, dict):
+                # It's a DFA object
+                minimized_states_count = len(minimized_result.states)
+                minimized_data = {
+                    "states": [{"name": s.name, "is_initial": s.is_initial, "is_final": s.is_final} 
+                               for s in minimized_result.states.values()],
+                    "alphabet": list(minimized_result.alphabet),
+                    "transitions": [{"from": state, "symbol": symbol, "to": to_state} 
+                                   for (state, symbol), to_state in minimized_result.transitions.items()],
+                    "start_state": next((s.name for s in minimized_result.states.values() if s.is_initial), None),
+                    "accept_states": [s.name for s in minimized_result.states.values() if s.is_final]
+                }
+            else:
+                # It's already a dictionary format
+                minimized_states_count = len(minimized_result["states"])
+                minimized_data = minimized_result
+            
+            # Determine if minimization happened
+            was_minimized = minimized_states_count < original_states_count
             
             return {
                 "success": True,
-                "minimized": minimized.dict() if hasattr(minimized, 'dict') else minimized,
+                "minimized": minimized_data,
                 "was_minimized": was_minimized,
-                "states_reduced": original_states - minimized_states
+                "states_reduced": original_states_count - minimized_states_count
             }
         except Exception as e:
+            logger.error(f"Error minimizing automaton: {str(e)}")
             return {"success": False, "error": str(e)}
 
     if request.parallel:

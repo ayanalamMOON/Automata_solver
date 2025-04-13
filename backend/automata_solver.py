@@ -11,6 +11,9 @@ from abc import ABC, abstractmethod
 # Configure logging
 logger = logging.getLogger(__name__)
 
+# Expose the convert_regex_to_dfa function at module level
+__all__ = ['AutomataSolver', 'DFA', 'NFA', 'PDA', 'BatchProcessor', 'convert_regex_to_dfa']
+
 class AutomataError(Exception):
     """Base exception for automata-related errors"""
     pass

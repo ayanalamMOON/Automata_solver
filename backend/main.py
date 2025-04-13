@@ -6,8 +6,11 @@ from pydantic import BaseModel, Field
 from automata_solver import (
     convert_regex_to_dfa,
     minimize_automaton,
-    export_automaton,
-    validate_regex
+    validate_regex,
+    AutomataSolver,
+    DFA,
+    NFA,
+    PDA,
 )
 from ai_explainer import explain_automata
 from PIL import Image

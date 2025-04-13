@@ -4,15 +4,57 @@ from dataclasses import dataclass
 import json
 import asyncio
 import xml.etree.ElementTree as ET
-from pydantic import BaseModel, validator, Field
+from pydantic import BaseModel, validator, Field, field_validator
 import logging
 from abc import ABC, abstractmethod
 
 # Configure logging
 logger = logging.getLogger(__name__)
 
-# Expose the convert_regex_to_dfa function at module level
-__all__ = ['AutomataSolver', 'DFA', 'NFA', 'PDA', 'BatchProcessor', 'convert_regex_to_dfa']
+# Functions that need to be importable at module level
+def convert_regex_to_dfa(regex: str) -> str:
+    """
+    Convert a regular expression to a DFA and return its visualization
+    
+    Args:
+        regex: The regular expression to convert
+        
+    Returns:
+        A string containing the DOT representation of the DFA
+        
+    Raises:
+        ValidationError: If the regex is invalid
+    """
+    try:
+        # First validate the regex
+        if not validate_regex(regex):
+            raise ValidationError("Invalid regular expression")
+            
+        # Create NFA from regex
+        nfa = create_nfa_from_regex(regex)
+        
+        # Convert NFA to DFA
+        dfa = convert_nfa_to_dfa(nfa)
+        
+        # Minimize the DFA
+        minimized_dfa = minimize_automaton(dfa)
+        
+        # Generate visualization
+        return minimized_dfa.visualize()
+        
+    except Exception as e:
+        logger.error(f"Failed to convert regex to DFA: {str(e)}")
+        raise
+
+# Export the public interface
+__all__ = [
+    'AutomataSolver',
+    'DFA',
+    'NFA', 
+    'PDA',
+    'BatchProcessor',
+    'convert_regex_to_dfa'
+]
 
 class AutomataError(Exception):
     """Base exception for automata-related errors"""
@@ -27,8 +69,9 @@ class StateValidationSchema(BaseModel):
     is_initial: bool = False
     is_final: bool = False
     
-    @validator('name')
-    def validate_name(cls, v):
+    @field_validator('name')
+    @classmethod
+    def validate_name(cls, v: str) -> str:
         if not v.strip():
             raise ValueError("State name cannot be empty")
         return v
@@ -38,8 +81,9 @@ class TransitionValidationSchema(BaseModel):
     symbol: str
     to_state: str = Field(..., description="Destination state")
     
-    @validator('symbol')
-    def validate_symbol(cls, v):
+    @field_validator('symbol')
+    @classmethod
+    def validate_symbol(cls, v: str) -> str:
         if not v.strip():
             raise ValueError("Transition symbol cannot be empty")
         return v
@@ -203,57 +247,93 @@ class NFA(AutomataBase):
     
     def validate_transition(self, transition_data: Dict) -> None:
         """Validate NFA transition data"""
-        # Implement validation logic for NFA transitions
-        pass
+        try:
+            # Implement validation logic for NFA transitions
+            pass
+        except Exception as e:
+            logger.error(f"Failed to validate NFA transition: {str(e)}")
+            raise ValidationError("Invalid NFA transition data")
     
     def add_transition(self, from_state: str, symbol: str, to_states: Set[str]) -> None:
-        self.alphabet.add(symbol)
-        self.transitions[(from_state, symbol)] = to_states
+        try:
+            self.alphabet.add(symbol)
+            self.transitions[(from_state, symbol)] = to_states
+        except Exception as e:
+            logger.error(f"Failed to add NFA transition: {str(e)}")
+            raise AutomataError("Failed to add NFA transition")
     
     def add_epsilon_transition(self, from_state: str, to_states: Set[str]) -> None:
-        if from_state not in self.epsilon_transitions:
-            self.epsilon_transitions[from_state] = set()
-        self.epsilon_transitions[from_state].update(to_states)
+        try:
+            if from_state not in self.epsilon_transitions:
+                self.epsilon_transitions[from_state] = set()
+            self.epsilon_transitions[from_state].update(to_states)
+        except Exception as e:
+            logger.error(f"Failed to add epsilon transition: {str(e)}")
+            raise AutomataError("Failed to add epsilon transition")
 
 class PDA(AutomataBase):
     def __init__(self, name: str):
         super().__init__(name)
         self.stack_alphabet: Set[str] = set()
-        self.transitions: Dict[Tuple[str, str, str], Set[Tuple[str, List[str]]]] = {}
+        self.transitions: Dict[Tuple[str, str, str], Set[Tuple[str, Tuple[str, ...]]]] = {}
     
     def validate_transition(self, transition_data: Dict) -> None:
         """Validate PDA transition data"""
-        # Implement validation logic for PDA transitions
-        pass
+        try:
+            if not all(key in transition_data for key in ['from', 'input', 'stack', 'to', 'push']):
+                raise ValidationError("Missing required transition fields")
+            if not isinstance(transition_data['push'], (list, tuple)):
+                raise ValidationError("Push symbols must be a list or tuple")
+        except Exception as e:
+            logger.error(f"Failed to validate PDA transition: {str(e)}")
+            raise ValidationError("Invalid PDA transition data")
     
     def add_transition(self, from_state: str, input_symbol: str, 
                       stack_symbol: str, to_state: str, push_symbols: List[str]) -> None:
-        self.alphabet.add(input_symbol)
-        self.stack_alphabet.add(stack_symbol)
-        for symbol in push_symbols:
-            self.stack_alphabet.add(symbol)
+        """
+        Add a transition to the PDA
+        
+        Args:
+            from_state: Source state
+            input_symbol: Input symbol to consume
+            stack_symbol: Stack symbol to pop
+            to_state: Destination state
+            push_symbols: List of symbols to push onto stack
             
-        key = (from_state, input_symbol, stack_symbol)
-        if key not in self.transitions:
-            self.transitions[key] = set()
-        self.transitions[key].add((to_state, push_symbols))
+        Raises:
+            ValidationError: If transition data is invalid
+            AutomataError: If states don't exist
+        """
+        try:
+            self.validate_transition({
+                'from': from_state,
+                'input': input_symbol,
+                'stack': stack_symbol,
+                'to': to_state,
+                'push': push_symbols
+            })
+            
+            if from_state not in self.states or to_state not in self.states:
+                raise AutomataError("Source or destination state does not exist")
+                
+            self.alphabet.add(input_symbol)
+            self.stack_alphabet.add(stack_symbol)
+            for symbol in push_symbols:
+                self.stack_alphabet.add(symbol)
+                
+            key = (from_state, input_symbol, stack_symbol)
+            if key not in self.transitions:
+                self.transitions[key] = set()
+            self.transitions[key].add((to_state, tuple(push_symbols)))
+        except Exception as e:
+            logger.error(f"Failed to add PDA transition: {str(e)}")
+            raise AutomataError("Failed to add PDA transition")
 
 class AutomataSolver:
     @staticmethod
     def create_automata(type_name: str, definition: Dict) -> Union[DFA, NFA, PDA]:
         """
         Factory method to create different types of automata
-        
-        Args:
-            type_name: Type of automaton to create
-            definition: Automaton definition
-            
-        Returns:
-            Created automaton instance
-            
-        Raises:
-            ValidationError: If definition is invalid
-            ValueError: If automaton type is unsupported
         """
         try:
             if type_name.upper() == "DFA":
@@ -265,8 +345,46 @@ class AutomataSolver:
             else:
                 raise ValueError(f"Unsupported automata type: {type_name}")
         except Exception as e:
-            logger.error(f"Failed to create automaton: {str(e)}")
+            logger.error(f"Failed to create automata: {str(e)}")
             raise
+
+    @staticmethod
+    def verify_solution(automata: Union[DFA, NFA, PDA], test_cases: List[Dict]) -> Dict:
+        """
+        Verify a solution against test cases
+        """
+        results = {
+            'passed': 0,
+            'failed': 0,
+            'details': []
+        }
+        
+        try:
+            for test in test_cases:
+                input_string = test['input']
+                expected = test['expected']
+                
+                if isinstance(automata, DFA):
+                    accepted, path = automata.simulate(input_string)
+                    passed = accepted == expected
+                    
+                    results['details'].append({
+                        'input': input_string,
+                        'expected': expected,
+                        'actual': accepted,
+                        'path': path,
+                        'passed': passed
+                    })
+                    
+                    if passed:
+                        results['passed'] += 1
+                    else:
+                        results['failed'] += 1
+            
+            return results
+        except Exception as e:
+            logger.error(f"Solution verification failed: {str(e)}")
+            raise AutomataError("Failed to verify solution")
 
     @staticmethod
     def _create_dfa(definition: Dict) -> DFA:
@@ -305,86 +423,6 @@ class AutomataSolver:
         except Exception as e:
             logger.error(f"Failed to create DFA: {str(e)}")
             raise ValidationError(f"Invalid DFA definition: {str(e)}")
-
-    @staticmethod
-    def verify_solution(automata: Union[DFA, NFA, PDA], test_cases: List[Dict]) -> Dict:
-        """
-        Verify a solution against test cases
-        
-        Args:
-            automata: Automaton to verify
-            test_cases: List of test cases
-            
-        Returns:
-            Dictionary containing verification results
-        """
-        results = {
-            'passed': 0,
-            'failed': 0,
-            'details': []
-        }
-        
-        try:
-            for test in test_cases:
-                input_string = test['input']
-                expected = test['expected']
-                
-                if isinstance(automata, DFA):
-                    accepted, path = automata.simulate(input_string)
-                    passed = accepted == expected
-                    
-                    results['details'].append({
-                        'input': input_string,
-                        'expected': expected,
-                        'actual': accepted,
-                        'path': path,
-                        'passed': passed
-                    })
-                    
-                    if passed:
-                        results['passed'] += 1
-                    else:
-                        results['failed'] += 1
-            
-            return results
-        except Exception as e:
-            logger.error(f"Solution verification failed: {str(e)}")
-            raise AutomataError("Failed to verify solution")
-
-    @staticmethod
-    def convert_regex_to_dfa(regex: str) -> str:
-        """
-        Convert a regular expression to a DFA and return its visualization
-        
-        Args:
-            regex: The regular expression to convert
-            
-        Returns:
-            A string containing the DOT representation of the DFA
-            
-        Raises:
-            ValidationError: If the regex is invalid
-        """
-        try:
-            # First validate the regex
-            if not validate_regex(regex):
-                raise ValidationError("Invalid regular expression")
-                
-            # Create NFA from regex
-            nfa = create_nfa_from_regex(regex)
-            
-            # Convert NFA to DFA
-            dfa = convert_nfa_to_dfa(nfa)
-            
-            # Minimize the DFA
-            minimized_dfa = minimize_automaton(dfa)
-            
-            # Generate visualization
-            return minimized_dfa.visualize()
-            
-        except Exception as e:
-            logger.error(f"Failed to convert regex to DFA: {str(e)}")
-            raise
 
 def validate_regex(regex: str) -> bool:
     """
@@ -432,6 +470,77 @@ class RegexNode:
         self.value = value
         self.left = left
         self.right = right
+
+# Core regex parsing functionality
+def parse_regex(regex: str) -> 'RegexNode':
+    """Parse regex into syntax tree using recursive descent"""
+    class Parser:
+        def __init__(self):
+            self.pos = 0
+            self.regex = regex
+        
+        def parse_char(self) -> 'RegexNode':
+            if self.pos < len(self.regex) and self.regex[self.pos] not in "()|+?*":
+                char = self.regex[self.pos]
+                self.pos += 1
+                return RegexNode("char", char)
+            return None
+        
+        def parse_group(self) -> 'RegexNode':
+            if self.pos < len(self.regex) and self.regex[self.pos] == "(":
+                self.pos += 1
+                node = self.parse_union()
+                if self.pos < len(self.regex) and self.regex[self.pos] == ")":
+                    self.pos += 1
+                    return node
+            return self.parse_char()
+        
+        def parse_star(self) -> 'RegexNode':
+            node = self.parse_group()
+            while node and self.pos < len(self.regex) and self.regex[self.pos] in "*+?":
+                op = self.regex[self.pos]
+                if op == "*":
+                    node = RegexNode("star", left=node)
+                elif op == "+":
+                    node = RegexNode(
+                        "concat",
+                        left=node,
+                        right=RegexNode("star", left=node)
+                    )
+                elif op == "?":
+                    node = RegexNode(
+                        "union",
+                        left=node,
+                        right=RegexNode("char", "")
+                    )
+                self.pos += 1
+            return node
+        
+        def parse_concat(self) -> 'RegexNode':
+            left = self.parse_star()
+            if not left:
+                return None
+            right = self.parse_concat()
+            if not right:
+                return left
+            return RegexNode("concat", left=left, right=right)
+        
+        def parse_union(self) -> 'RegexNode':
+            left = self.parse_concat()
+            if self.pos < len(self.regex) and self.regex[self.pos] == "|":
+                self.pos += 1
+                right = self.parse_union()
+                return RegexNode("union", left=left, right=right)
+            return left
+            
+        def parse(self) -> 'RegexNode':
+            result = self.parse_union()
+            if self.pos < len(self.regex):
+                raise ValidationError(f"Unexpected character at position {self.pos}")
+            return result
+    
+    parser = Parser()
+    return parser.parse()
 
 def create_nfa_from_regex(regex: str) -> NFA:
     """
@@ -506,59 +615,6 @@ def create_nfa_from_regex(regex: str) -> NFA:
         logger.error(f"Failed to create NFA from regex: {str(e)}")
         raise ValidationError(f"Failed to create NFA: {str(e)}")
 
-def parse_regex(regex: str) -> RegexNode:
-    """Parse regex into syntax tree using recursive descent"""
-    pos = 0
-    
-    def parse_char() -> RegexNode:
-        nonlocal pos
-        if pos < len(regex) and regex[pos] not in "()|\*+?":
-            char = regex[pos]
-            pos += 1
-            return RegexNode("char", char)
-        return None
-    
-    def parse_group() -> RegexNode:
-        nonlocal pos
-        if pos < len(regex) and regex[pos] == "(":
-            pos += 1
-            node = parse_union()
-            if pos < len(regex) and regex[pos] == ")":
-                pos += 1
-                return node
-        return parse_char()
-    
-    def parse_star() -> RegexNode:
-        node = parse_group()
-        while pos < len(regex) and regex[pos] in "*+?":
-            if regex[pos] == "*":
-                node = RegexNode("star", left=node)
-            elif regex[pos] == "+":
-                node = RegexNode("concat", left=node, right=RegexNode("star", left=node))
-            elif regex[pos] == "?":
-                node = RegexNode("union", left=node, right=RegexNode("char", ""))
-            pos += 1
-        return node
-    
-    def parse_concat() -> RegexNode:
-        left = parse_star()
-        if not left:
-            return None
-        right = parse_concat()
-        if not right:
-            return left
-        return RegexNode("concat", left=left, right=right)
-    
-    def parse_union() -> RegexNode:
-        left = parse_concat()
-        if pos < len(regex) and regex[pos] == "|":
-            pos += 1
-            right = parse_union()
-            return RegexNode("union", left=left, right=right)
-        return left
-    
-    return parse_union()
-
 def convert_nfa_to_dfa(nfa: NFA) -> DFA:
     """
     Convert an NFA to a DFA using the subset construction algorithm
@@ -569,72 +625,76 @@ def convert_nfa_to_dfa(nfa: NFA) -> DFA:
     Returns:
         A DFA instance
     """
-    dfa = DFA(f"DFA for {nfa.name}")
-    
-    # Get epsilon closure of a set of states
-    def epsilon_closure(states: Set[str]) -> Set[str]:
-        closure = states.copy()
-        stack = list(states)
+    try:
+        dfa = DFA(f"DFA for {nfa.name}")
         
-        while stack:
-            state = stack.pop()
-            if state in nfa.epsilon_transitions:
-                for next_state in nfa.epsilon_transitions[state]:
-                    if next_state not in closure:
-                        closure.add(next_state)
-                        stack.append(next_state)
-        
-        return closure
-    
-    # Get next states for a set of states and a symbol
-    def move(states: Set[str], symbol: str) -> Set[str]:
-        next_states = set()
-        for state in states:
-            if (state, symbol) in nfa.transitions:
-                next_states.update(nfa.transitions[(state, symbol)])
-        return next_states
-    
-    # Initialize DFA with start state
-    initial_states = epsilon_closure({next(s.name for s in nfa.states.values() if s.is_initial)})
-    dfa_states = {frozenset(initial_states): f"q0"}
-    dfa.add_state("q0", True, any(nfa.states[s].is_final for s in initial_states))
-    
-    # Process unmarked DFA states
-    unprocessed = [initial_states]
-    state_counter = 1
-    
-    while unprocessed:
-        current_states = unprocessed.pop()
-        current_name = dfa_states[frozenset(current_states)]
-        
-        # Process each input symbol
-        for symbol in nfa.alphabet:
-            # Get next state set
-            next_states = epsilon_closure(move(current_states, symbol))
-            if not next_states:
-                continue
-                
-            # Add new DFA state if needed
-            next_frozen = frozenset(next_states)
-            if next_frozen not in dfa_states:
-                new_name = f"q{state_counter}"
-                state_counter += 1
-                dfa_states[next_frozen] = new_name
-                dfa.add_state(
-                    new_name,
-                    False,
-                    any(nfa.states[s].is_final for s in next_states)
-                )
-                unprocessed.append(next_states)
+        # Get epsilon closure of a set of states
+        def epsilon_closure(states: Set[str]) -> Set[str]:
+            closure = states.copy()
+            stack = list(states)
             
-            # Add transition
-            dfa.add_transition(
-                current_name,
-                symbol,
-                dfa_states[next_frozen]
-            )
-    
-    return dfa
+            while stack:
+                state = stack.pop()
+                if state in nfa.epsilon_transitions:
+                    for next_state in nfa.epsilon_transitions[state]:
+                        if next_state not in closure:
+                            closure.add(next_state)
+                            stack.append(next_state)
+            
+            return closure
+        
+        # Get next states for a set of states and a symbol
+        def move(states: Set[str], symbol: str) -> Set[str]:
+            next_states = set()
+            for state in states:
+                if (state, symbol) in nfa.transitions:
+                    next_states.update(nfa.transitions[(state, symbol)])
+            return next_states
+        
+        # Initialize DFA with start state
+        initial_states = epsilon_closure({next(s.name for s in nfa.states.values() if s.is_initial)})
+        dfa_states = {frozenset(initial_states): f"q0"}
+        dfa.add_state("q0", True, any(nfa.states[s].is_final for s in initial_states))
+        
+        # Process unmarked DFA states
+        unprocessed = [initial_states]
+        state_counter = 1
+        
+        while unprocessed:
+            current_states = unprocessed.pop()
+            current_name = dfa_states[frozenset(current_states)]
+            
+            # Process each input symbol
+            for symbol in nfa.alphabet:
+                # Get next state set
+                next_states = epsilon_closure(move(current_states, symbol))
+                if not next_states:
+                    continue
+                    
+                # Add new DFA state if needed
+                next_frozen = frozenset(next_states)
+                if next_frozen not in dfa_states:
+                    new_name = f"q{state_counter}"
+                    state_counter += 1
+                    dfa_states[next_frozen] = new_name
+                    dfa.add_state(
+                        new_name,
+                        False,
+                        any(nfa.states[s].is_final for s in next_states)
+                    )
+                    unprocessed.append(next_states)
+                
+                # Add transition
+                dfa.add_transition(
+                    current_name,
+                    symbol,
+                    dfa_states[next_frozen]
+                )
+        
+        return dfa
+    except Exception as e:
+        logger.error(f"Failed to convert NFA to DFA: {str(e)}")
+        raise AutomataError("Failed to convert NFA to DFA")
 
 def minimize_automaton(automaton: Union[DFA, Dict]) -> DFA:
     """
@@ -646,107 +706,111 @@ def minimize_automaton(automaton: Union[DFA, Dict]) -> DFA:
     Returns:
         A minimized DFA instance
     """
-    if isinstance(automaton, dict):
-        dfa = DFA(automaton.get('name', 'Unnamed DFA'))
-        # Convert dictionary to DFA instance
-        for state in automaton.get('states', []):
-            dfa.add_state(
-                state['name'],
-                state.get('initial', False),
-                state.get('final', False)
-            )
-        for transition in automaton.get('transitions', []):
-            dfa.add_transition(
-                transition['from'],
-                transition['symbol'],
-                transition['to']
-            )
-        automaton = dfa
-    
-    # Implementation of Hopcroft's algorithm
-    def get_reachable_states(dfa: DFA) -> Set[str]:
-        reachable = set()
-        queue = [next(s.name for s in dfa.states.values() if s.is_initial)]
+    try:
+        if isinstance(automaton, dict):
+            dfa = DFA(automaton.get('name', 'Unnamed DFA'))
+            # Convert dictionary to DFA instance
+            for state in automaton.get('states', []):
+                dfa.add_state(
+                    state['name'],
+                    state.get('initial', False),
+                    state.get('final', False)
+                )
+            for transition in automaton.get('transitions', []):
+                dfa.add_transition(
+                    transition['from'],
+                    transition['symbol'],
+                    transition['to']
+                )
+            automaton = dfa
         
-        while queue:
-            state = queue.pop()
-            if state not in reachable:
-                reachable.add(state)
-                for symbol in dfa.alphabet:
-                    if (state, symbol) in dfa.transitions:
-                        queue.append(dfa.transitions[(state, symbol)])
-        
-        return reachable
-    
-    # Remove unreachable states
-    reachable = get_reachable_states(automaton)
-    minimized = DFA(f"Minimized {automaton.name}")
-    
-    # Initialize partitions (accepting and non-accepting states)
-    accepting = {s.name for s in automaton.states.values() if s.is_final and s.name in reachable}
-    non_accepting = reachable - accepting
-    partitions = {frozenset(accepting), frozenset(non_accepting)} - {frozenset()}
-    
-    # Refine partitions
-    while True:
-        new_partitions = set()
-        for partition in partitions:
-            # Try to split partition
-            splits = {}
-            for state in partition:
-                key = []
-                for symbol in sorted(automaton.alphabet):
-                    dest = None
-                    if (state, symbol) in automaton.transitions:
-                        dest_state = automaton.transitions[(state, symbol)]
-                        # Find which partition contains the destination state
-                        for p in partitions:
-                            if dest_state in p:
-                                dest = hash(p)
-                                break
-                    key.append((symbol, dest))
-                key = tuple(key)
-                
-                if key not in splits:
-                    splits[key] = set()
-                splits[key].add(state)
+        # Implementation of Hopcroft's algorithm
+        def get_reachable_states(dfa: DFA) -> Set[str]:
+            reachable = set()
+            queue = [next(s.name for s in dfa.states.values() if s.is_initial)]
             
-            # Add resulting splits to new partitions
-            new_partitions.update(frozenset(states) for states in splits.values())
+            while queue:
+                state = queue.pop()
+                if state not in reachable:
+                    reachable.add(state)
+                    for symbol in dfa.alphabet:
+                        if (state, symbol) in dfa.transitions:
+                            queue.append(dfa.transitions[(state, symbol)])
+            
+            return reachable
         
-        if new_partitions == partitions:
-            break
-        partitions = new_partitions
-    
-    # Create minimized DFA
-    state_map = {}
-    counter = 0
-    
-    # Add states
-    for partition in partitions:
-        if not partition:
-            continue
-        new_name = f"q{counter}"
-        counter += 1
+        # Remove unreachable states
+        reachable = get_reachable_states(automaton)
+        minimized = DFA(f"Minimized {automaton.name}")
         
-        # Check if this partition contains initial/final states
-        is_initial = any(automaton.states[s].is_initial for s in partition)
-        is_final = any(automaton.states[s].is_final for s in partition)
+        # Initialize partitions (accepting and non-accepting states)
+        accepting = {s.name for s in automaton.states.values() if s.is_final and s.name in reachable}
+        non_accepting = reachable - accepting
+        partitions = {frozenset(accepting), frozenset(non_accepting)} - {frozenset()}
         
-        minimized.add_state(new_name, is_initial, is_final)
-        for state in partition:
-            state_map[state] = new_name
-    
-    # Add transitions
-    for (state, symbol), dest in automaton.transitions.items():
-        if state in state_map and dest in state_map:
-            minimized.add_transition(
-                state_map[state],
-                symbol,
-                state_map[dest]
-            )
-    
-    return minimized
+        # Refine partitions
+        while True:
+            new_partitions = set()
+            for partition in partitions:
+                # Try to split partition
+                splits = {}
+                for state in partition:
+                    key = []
+                    for symbol in sorted(automaton.alphabet):
+                        dest = None
+                        if (state, symbol) in automaton.transitions:
+                            dest_state = automaton.transitions[(state, symbol)]
+                            # Find which partition contains the destination state
+                            for p in partitions:
+                                if dest_state in p:
+                                    dest = hash(p)
+                                    break
+                        key.append((symbol, dest))
+                    key = tuple(key)
+                    
+                    if key not in splits:
+                        splits[key] = set()
+                    splits[key].add(state)
+                
+                # Add resulting splits to new partitions
+                new_partitions.update(frozenset(states) for states in splits.values())
+            
+            if new_partitions == partitions:
+                break
+            partitions = new_partitions
+        
+        # Create minimized DFA
+        state_map = {}
+        counter = 0
+        
+        # Add states
+        for partition in partitions:
+            if not partition:
+                continue
+            new_name = f"q{counter}"
+            counter += 1
+            
+            # Check if this partition contains initial/final states
+            is_initial = any(automaton.states[s].is_initial for s in partition)
+            is_final = any(automaton.states[s].is_final for s in partition)
+            
+            minimized.add_state(new_name, is_initial, is_final)
+            for state in partition:
+                state_map[state] = new_name
+        
+        # Add transitions
+        for (state, symbol), dest in automaton.transitions.items():
+            if state in state_map and dest in state_map:
+                minimized.add_transition(
+                    state_map[state],
+                    symbol,
+                    state_map[dest]
+                )
+        
+        return minimized
+    except Exception as e:
+        logger.error(f"Failed to minimize automaton: {str(e)}")
+        raise AutomataError("Failed to minimize automaton")
 
 class BatchProcessor:
     def __init__(self):
@@ -791,6 +855,10 @@ class BatchProcessor:
 
         # Create tasks for all submissions
         tasks = [process_single(sub) for sub in submissions]
-        results = await asyncio.gather(*tasks)
+        try:
+            results = await asyncio.gather(*tasks)
+        except Exception as e:
+            logger.error(f"Failed to process batch submissions: {str(e)}")
+            raise AutomataError("Failed to process batch submissions")
         
         return results

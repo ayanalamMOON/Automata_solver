@@ -1,5 +1,5 @@
 import pytest
-from automata_solver import AutomataSolver, DFA, NFA, PDA, AutomataError, ValidationError
+from automata_solver import AutomataSolver, DFA, NFA, PDA, AutomataError, ValidationError, convert_regex_to_dfa
 from typing import Dict, Set
 
 def test_dfa_creation():
@@ -71,11 +71,12 @@ def test_pda_creation():
     pda.add_state('q1', False, True)
     
     # Add transition that pushes 'X' onto stack
-    pda.add_transition('q0', 'a', 'Z', 'q1', ['X', 'Z'])
+    push_symbols = ['X', 'Z']
+    pda.add_transition('q0', 'a', 'Z', 'q1', push_symbols)
     
     key = ('q0', 'a', 'Z')
     assert key in pda.transitions
-    assert ('q1', ['X', 'Z']) in pda.transitions[key]
+    assert ('q1', tuple(push_symbols)) in pda.transitions[key]  # Check for tuple
 
 def test_batch_processing():
     """Test batch processing of automata submissions"""
@@ -128,3 +129,18 @@ def test_visualization():
     assert 'digraph' in dot_source
     assert 'q0' in dot_source
     assert 'q1' in dot_source
+
+def test_convert_regex_to_dfa():
+    """Test the module-level convert_regex_to_dfa function"""
+    # Test basic regex conversion
+    result = convert_regex_to_dfa('a(b|c)*')
+    assert isinstance(result, str)
+    assert 'digraph' in result
+    
+    # Test invalid regex
+    with pytest.raises(ValidationError):
+        convert_regex_to_dfa('a**b')  # Invalid: consecutive stars
+        
+    # Test empty regex
+    with pytest.raises(ValidationError):
+        convert_regex_to_dfa('')

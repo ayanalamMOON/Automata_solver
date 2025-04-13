@@ -1,36 +1,106 @@
 import os
 from dotenv import load_dotenv
 import openai
-import redis
+from redis.connection import ConnectionPool
+from redis.client import Redis
+from redis.exceptions import ConnectionError, TimeoutError
+from redis.retry import Retry
+from redis.backoff import ExponentialBackoff
 import json
 from datetime import timedelta
+import logging
+import functools
+import time
+from typing import Optional, Any
 
 # Load environment variables
 load_dotenv()
 
-# Initialize Redis client
-redis_client = redis.Redis(
-    host=os.environ.get('REDIS_HOST', 'localhost'),
-    port=int(os.environ.get('REDIS_PORT', 6379)),
-    db=0,
-    decode_responses=True
-)
+# Configure logging
+logger = logging.getLogger(__name__)
 
-# Initialize OpenAI API client
-api_key = os.environ.get("OPENAI_API_KEY", "")
-openai.api_key = api_key
+# Redis connection configuration with connection pooling
+REDIS_CONFIG = {
+    'host': os.environ.get('REDIS_HOST', 'localhost'),
+    'port': int(os.environ.get('REDIS_PORT', 6379)),
+    'db': 0,
+    'decode_responses': True,
+    'socket_timeout': 5,
+    'retry_on_timeout': True
+}
 
-def get_cached_response(cache_key: str) -> str:
-    """Get response from cache if it exists"""
-    return redis_client.get(cache_key)
+# Create a connection pool
+redis_pool = ConnectionPool(**REDIS_CONFIG)
 
+def get_redis_client() -> Redis:
+    """Get Redis client with automatic retries and backoff"""
+    retry = Retry(ExponentialBackoff(), 3)
+    return Redis(connection_pool=redis_pool, retry=retry)
+
+def with_redis_retry(max_retries: int = 3, backoff_factor: float = 0.1):
+    """Decorator for Redis operations with retry logic"""
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            for attempt in range(max_retries):
+                try:
+                    return func(*args, **kwargs)
+                except (ConnectionError, TimeoutError) as e:
+                    if attempt == max_retries - 1:
+                        logger.error(f"Redis operation failed after {max_retries} attempts: {str(e)}")
+                        raise
+                    wait_time = backoff_factor * (2 ** attempt)
+                    time.sleep(wait_time)
+            return None
+        return wrapper
+    return decorator
+
+@with_redis_retry()
+def get_cached_response(cache_key: str) -> Optional[str]:
+    """Get response from cache if it exists with retry logic"""
+    try:
+        client = get_redis_client()
+        return client.get(cache_key)
+    except Exception as e:
+        logger.error(f"Error getting cached response: {str(e)}")
+        return None
+
+@with_redis_retry()
 def set_cached_response(cache_key: str, response: str, expire_time: int = 3600) -> None:
-    """Store response in cache with expiration"""
-    redis_client.setex(cache_key, timedelta(seconds=expire_time), response)
+    """Store response in cache with expiration and retry logic"""
+    try:
+        client = get_redis_client()
+        client.setex(cache_key, timedelta(seconds=expire_time), response)
+    except Exception as e:
+        logger.error(f"Error setting cached response: {str(e)}")
 
+def with_openai_retry(max_retries: int = 3, backoff_factor: float = 0.1):
+    """Decorator for OpenAI API calls with retry logic"""
+    def decorator(func):
+        @functools.wraps(func)
+        def wrapper(*args, **kwargs):
+            for attempt in range(max_retries):
+                try:
+                    return func(*args, **kwargs)
+                except openai.error.RateLimitError:
+                    if attempt == max_retries - 1:
+                        logger.error("OpenAI API rate limit exceeded")
+                        raise
+                    wait_time = backoff_factor * (2 ** attempt)
+                    time.sleep(wait_time)
+                except openai.error.APIError as e:
+                    if attempt == max_retries - 1:
+                        logger.error(f"OpenAI API error: {str(e)}")
+                        raise
+                    wait_time = backoff_factor * (2 ** attempt)
+                    time.sleep(wait_time)
+            return None
+        return decorator
+
+@with_openai_retry()
 def explain_automata(query: str) -> str:
     """
-    Generate explanations about automata topics using OpenAI's API with caching.
+    Generate explanations about automata topics using OpenAI's API with caching and retries.
     
     Args:
         query: The automata-related query to explain
@@ -39,13 +109,15 @@ def explain_automata(query: str) -> str:
         A string explanation of the query
     """
     try:
-        if not api_key:
+        if not openai.api_key:
             return "API key not configured. Please set the OPENAI_API_KEY environment variable."
         
-        # Check cache first
-        cache_key = f"automata_explanation:{hash(query)}"
+        # Check cache first with hash of normalized query
+        normalized_query = query.lower().strip()
+        cache_key = f"automata_explanation:{hash(normalized_query)}"
         cached_response = get_cached_response(cache_key)
         if cached_response:
+            logger.info("Cache hit for query: %s", normalized_query)
             return cached_response
 
         # Prepare context for better automata explanations
@@ -67,13 +139,18 @@ def explain_automata(query: str) -> str:
         )
         
         explanation = response.choices[0].message.content
-        # Cache the response
-        set_cached_response(cache_key, explanation)
+        
+        # Cache the response with dynamic expiration based on query complexity
+        expire_time = 7200 if len(query.split()) > 10 else 3600
+        set_cached_response(cache_key, explanation, expire_time)
+        
         return explanation
         
     except Exception as e:
+        logger.error("Error generating explanation: %s", str(e))
         return f"Error generating explanation: {str(e)}"
 
+@with_openai_retry()
 def analyze_user_answer(question: str, user_answer: str) -> str:
     """
     Analyze a user's answer to an automata question and provide feedback.
@@ -86,7 +163,7 @@ def analyze_user_answer(question: str, user_answer: str) -> str:
         A string with feedback and suggestions for improvement
     """
     try:
-        if not api_key:
+        if not openai.api_key:
             return "API key not configured. Please set the OPENAI_API_KEY environment variable."
         
         # Prepare context for analyzing automata answers
@@ -119,4 +196,5 @@ def analyze_user_answer(question: str, user_answer: str) -> str:
         return response.choices[0].message.content
         
     except Exception as e:
+        logger.error("Error analyzing answer: %s", str(e))
         return f"Error analyzing answer: {str(e)}"

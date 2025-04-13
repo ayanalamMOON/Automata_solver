@@ -333,6 +333,7 @@ class BulkAutomataResponse(BaseModel):
     results: List[Dict]
     failed_count: int
     success_count: int
+    minimized_count: int = 0  # Add this field with default value 0
 
 class AutomataAnalysisRequest(BaseModel):
     automaton: Dict = Field(..., description="Automaton to analyze")

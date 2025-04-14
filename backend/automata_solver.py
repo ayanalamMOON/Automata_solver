@@ -385,6 +385,33 @@ class DFA(AutomataBase):
                 "is_accepting_state": current.is_final
             }
 
+    def get_visualization_state(self) -> Dict:
+        """
+        Get the current visualization state of the DFA
+        
+        Returns:
+            Dictionary containing nodes and edges for visualization
+        """
+        return {
+            "nodes": [
+                {
+                    "id": state.name,
+                    "active": state.is_initial,  # Initially, start state is active
+                    "accepting": state.is_final
+                }
+                for state in self.states.values()
+            ],
+            "edges": [
+                {
+                    "from": src,
+                    "to": dst,
+                    "symbol": sym,
+                    "active": False  # Initially no transitions are active
+                }
+                for (src, sym), dst in self.transitions.items()
+            ]
+        }
+
 class NFA(AutomataBase):
     def __init__(self, name: str):
         super().__init__(name)

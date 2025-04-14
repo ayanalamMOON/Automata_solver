@@ -1,5 +1,5 @@
 import pytest
-from automata_solver import AutomataSolver, DFA, NFA, PDA, AutomataError, ValidationError, convert_regex_to_dfa
+from automata_solver import AutomataSolver, DFA, NFA, PDA, AutomataError, ValidationError, convert_regex_to_dfa, validate_regex, create_nfa_from_regex, convert_nfa_to_dfa
 from typing import Dict, Set
 
 def test_dfa_creation():
@@ -144,3 +144,88 @@ def test_convert_regex_to_dfa():
     # Test empty regex
     with pytest.raises(ValidationError):
         convert_regex_to_dfa('')
+
+def test_regex_validation_simple():
+    """Test regex validation with simple patterns"""
+    assert validate_regex('a') is True
+    assert validate_regex('ab') is True
+    assert validate_regex('a|b') is True
+    assert validate_regex('a*') is True
+    assert validate_regex('(a|b)*') is True
+
+def test_regex_validation_advanced():
+    """Test regex validation with more complex patterns"""
+    assert validate_regex('(a|b)*abb') is True
+    assert validate_regex('((a|b)*|c)d') is True
+    assert validate_regex('a+b?c*') is True
+
+def test_regex_validation_invalid():
+    """Test regex validation with invalid patterns"""
+    assert validate_regex('') is False
+    assert validate_regex('*') is False
+    assert validate_regex('a**b') is False
+    assert validate_regex('(ab') is False
+    assert validate_regex('ab)') is False
+    assert validate_regex('a||b') is False
+
+def test_create_nfa_from_regex():
+    """Test NFA creation from regex"""
+    # Test simple regex
+    nfa = create_nfa_from_regex('ab')
+    assert len(nfa.states) > 0
+    assert 'a' in nfa.alphabet
+    assert 'b' in nfa.alphabet
+
+    # Test alternation
+    nfa = create_nfa_from_regex('a|b')
+    assert len(nfa.states) > 0
+    assert 'a' in nfa.alphabet
+    assert 'b' in nfa.alphabet
+
+    # Test Kleene star
+    nfa = create_nfa_from_regex('a*')
+    assert len(nfa.states) > 0
+    assert 'a' in nfa.alphabet
+
+    # Test combination
+    nfa = create_nfa_from_regex('(a|b)*abb')
+    assert len(nfa.states) > 0
+    assert 'a' in nfa.alphabet
+    assert 'b' in nfa.alphabet
+
+def test_nfa_to_dfa_conversion():
+    """Test NFA to DFA conversion"""
+    # Create NFA first
+    nfa = create_nfa_from_regex('(a|b)*abb')
+    
+    # Convert to DFA
+    dfa = convert_nfa_to_dfa(nfa)
+    
+    # Test DFA properties
+    assert isinstance(dfa, DFA)
+    assert len(dfa.states) > 0
+    assert len(dfa.transitions) > 0
+    assert len([s for s in dfa.states.values() if s.is_initial]) == 1
+    assert len([s for s in dfa.states.values() if s.is_final]) > 0
+
+    # Test DFA acceptance
+    assert dfa.simulate('abb')[0] is True
+    assert dfa.simulate('aabb')[0] is True
+    assert dfa.simulate('ab')[0] is False
+
+def test_regex_to_dfa_full():
+    """Test complete regex to DFA conversion pipeline"""
+    # Test conversion and simulation
+    dfa = convert_regex_to_dfa('(a|b)*abb')
+    assert isinstance(dfa, DFA)
+
+    # Test accepted strings
+    assert dfa.simulate('abb')[0] is True
+    assert dfa.simulate('aabb')[0] is True
+    assert dfa.simulate('babb')[0] is True
+    assert dfa.simulate('abababb')[0] is True
+
+    # Test rejected strings
+    assert dfa.simulate('ab')[0] is False
+    assert dfa.simulate('ba')[0] is False
+    assert dfa.simulate('abba')[0] is False

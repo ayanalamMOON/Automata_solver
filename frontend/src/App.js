@@ -1,36 +1,49 @@
 import React, { useState } from 'react';
 import './App.css';
 import AutomataBuilder from './components/AutomataBuilder';
-import AnswerAnalyzer from './components/AnswerAnalyzer';
+import AutomataVisualizer from './components/AutomataVisualizer';
+import GrammarBuilder from './components/GrammarBuilder';
+import RegexPlayground from './components/RegexPlayground';
 
 function App() {
-    const [currentTool, setCurrentTool] = useState('builder');
+    const [view, setView] = useState('automata');
 
     return (
-        <div className="app">
-            <header className="app-header">
-                <h1>Automata Solver</h1>
-                <nav>
-                    <button 
-                        className={currentTool === 'builder' ? 'active' : ''}
-                        onClick={() => setCurrentTool('builder')}
-                    >
-                        Automata Builder
-                    </button>
-                    <button 
-                        className={currentTool === 'analyzer' ? 'active' : ''}
-                        onClick={() => setCurrentTool('analyzer')}
-                    >
-                        Answer Analyzer
-                    </button>
-                </nav>
-            </header>
+        <div className="App">
+            <nav className="app-nav">
+                <button 
+                    className={view === 'automata' ? 'active' : ''} 
+                    onClick={() => setView('automata')}>
+                    Automata Tools
+                </button>
+                <button 
+                    className={view === 'grammar' ? 'active' : ''} 
+                    onClick={() => setView('grammar')}>
+                    Grammar Tools
+                </button>
+                <button 
+                    className={view === 'regex' ? 'active' : ''} 
+                    onClick={() => setView('regex')}>
+                    Regex Tools
+                </button>
+            </nav>
 
             <main className="app-content">
-                {currentTool === 'builder' ? (
-                    <AutomataBuilder />
-                ) : (
-                    <AnswerAnalyzer />
+                {view === 'automata' && (
+                    <div className="automata-section">
+                        <AutomataBuilder />
+                        <AutomataVisualizer />
+                    </div>
+                )}
+                {view === 'grammar' && (
+                    <div className="grammar-section">
+                        <GrammarBuilder />
+                    </div>
+                )}
+                {view === 'regex' && (
+                    <div className="regex-section">
+                        <RegexPlayground />
+                    </div>
                 )}
             </main>
         </div>

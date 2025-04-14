@@ -1,0 +1,238 @@
+.grammar-builder {
+    padding: 20px;
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.grammar-input {
+    background: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+    color: #333;
+}
+
+.form-group input {
+    width: 100%;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.productions {
+    margin: 20px 0;
+}
+
+.production {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px;
+    background: #f5f5f5;
+    border-radius: 4px;
+    margin-bottom: 8px;
+}
+
+.production button {
+    background: #ff4444;
+    color: white;
+    border: none;
+    padding: 4px 8px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.production button:hover {
+    background: #cc0000;
+}
+
+.add-production {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+    margin-top: 15px;
+}
+
+.add-production input {
+    flex: 1;
+    padding: 8px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.add-production span {
+    font-weight: bold;
+    color: #666;
+}
+
+.add-production button {
+    background: #4CAF50;
+    color: white;
+    border: none;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+}
+
+.add-production button:hover {
+    background: #45a049;
+}
+
+.actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 20px;
+}
+
+.actions button {
+    background: #2196F3;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+    flex: 1;
+}
+
+.actions button:hover {
+    background: #1976D2;
+}
+
+.error {
+    color: #ff4444;
+    padding: 10px;
+    margin-top: 10px;
+    background: #ffebee;
+    border-radius: 4px;
+}
+
+.result {
+    margin-top: 20px;
+    padding: 15px;
+    background: #e8f5e9;
+    border-radius: 4px;
+}
+
+.cnf-grammar {
+    font-family: monospace;
+    padding: 10px;
+    background: #fff;
+    border-radius: 4px;
+    margin-top: 10px;
+}
+
+.parse-tree {
+    margin-top: 10px;
+    overflow-x: auto;
+    background: #fff;
+    padding: 15px;
+    border-radius: 4px;
+}
+
+/* SVG styling for parse trees */
+.parse-tree svg {
+    max-width: 100%;
+    height: auto;
+}
+
+.batch-processor {
+    margin-top: 30px;
+    padding: 20px;
+    background: #f8f9fa;
+    border-radius: 8px;
+    border: 1px solid #e9ecef;
+}
+
+.operation-selector {
+    margin-bottom: 20px;
+}
+
+.operation-selector label {
+    display: block;
+    margin: 8px 0;
+    cursor: pointer;
+}
+
+.operation-selector input[type="checkbox"] {
+    margin-right: 10px;
+}
+
+.batch-parser {
+    margin-top: 20px;
+}
+
+.batch-parser textarea {
+    width: 100%;
+    padding: 10px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    margin-bottom: 10px;
+    font-family: monospace;
+    resize: vertical;
+}
+
+.batch-result {
+    margin: 15px 0;
+    padding: 10px;
+    background: #fff;
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.batch-result h5 {
+    margin: 0 0 10px 0;
+    color: #2196F3;
+}
+
+.batch-result pre {
+    background: #f5f5f5;
+    padding: 10px;
+    border-radius: 4px;
+    overflow-x: auto;
+    margin: 0;
+}
+
+.parse-result {
+    margin: 20px 0;
+    padding: 15px;
+    background: #fff;
+    border-radius: 4px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+}
+
+.parse-result h5 {
+    margin: 0 0 10px 0;
+    color: #2196F3;
+    font-family: monospace;
+}
+
+.batch-processor button {
+    background: #2196F3;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 4px;
+    cursor: pointer;
+    width: 100%;
+    margin-top: 10px;
+}
+
+.batch-processor button:disabled {
+    background: #ccc;
+    cursor: not-allowed;
+}
+
+.batch-processor button:not(:disabled):hover {
+    background: #1976D2;
+}

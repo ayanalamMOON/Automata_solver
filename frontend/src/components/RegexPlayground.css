@@ -1,0 +1,194 @@
+.regex-playground {
+    padding: 20px;
+    max-width: 1000px;
+    margin: 0 auto;
+}
+
+.regex-playground h2 {
+    color: #333;
+    margin-bottom: 20px;
+    text-align: center;
+}
+
+.input-section {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    background-color: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    margin-bottom: 20px;
+}
+
+.regex-input, .test-input {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.regex-input label, .test-input label {
+    font-weight: bold;
+    color: #555;
+}
+
+.regex-input input, .test-input input {
+    padding: 10px;
+    border: 2px solid #ddd;
+    border-radius: 4px;
+    font-size: 16px;
+    transition: border-color 0.3s;
+}
+
+.regex-input input:focus, .test-input input:focus {
+    border-color: #2196f3;
+    outline: none;
+}
+
+.regex-input input.invalid {
+    border-color: #dc3545;
+}
+
+.test-input-group {
+    display: flex;
+    gap: 10px;
+}
+
+.test-input-group button {
+    padding: 10px 20px;
+    background-color: #2196f3;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+.test-input-group button:hover:not(:disabled) {
+    background-color: #1976d2;
+}
+
+.test-input-group button:disabled {
+    background-color: #ccc;
+    cursor: not-allowed;
+}
+
+.validation-message {
+    padding: 8px;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+.validation-message.valid {
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.validation-message.invalid {
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+.visualization-section {
+    background-color: white;
+    border-radius: 8px;
+    padding: 20px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    margin: 20px 0;
+}
+
+.visualization-section h3 {
+    color: #333;
+    margin-bottom: 15px;
+    text-align: center;
+}
+
+.loading {
+    text-align: center;
+    color: #666;
+    padding: 20px;
+    font-style: italic;
+}
+
+.error-message {
+    background-color: #f8d7da;
+    color: #721c24;
+    padding: 10px;
+    border-radius: 4px;
+    margin: 10px 0;
+    border-left: 4px solid #dc3545;
+}
+
+.test-results {
+    background-color: #f8f9fa;
+    border-radius: 8px;
+    padding: 20px;
+    margin-top: 20px;
+}
+
+.test-results h3 {
+    color: #333;
+    margin-bottom: 15px;
+}
+
+.result {
+    text-align: center;
+    padding: 10px;
+    border-radius: 4px;
+    font-weight: bold;
+    margin-bottom: 15px;
+}
+
+.result.accepted {
+    background-color: #d4edda;
+    color: #155724;
+    border: 1px solid #c3e6cb;
+}
+
+.result.rejected {
+    background-color: #f8d7da;
+    color: #721c24;
+    border: 1px solid #f5c6cb;
+}
+
+.steps {
+    background-color: white;
+    border-radius: 4px;
+    padding: 15px;
+    margin-top: 15px;
+}
+
+.steps h4 {
+    color: #333;
+    margin-bottom: 10px;
+}
+
+.step {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 10px;
+    padding: 10px;
+    background-color: #f8f9fa;
+    border-radius: 4px;
+    margin-bottom: 10px;
+}
+
+.step:last-child {
+    margin-bottom: 0;
+}
+
+.step div {
+    font-family: monospace;
+}
+
+@media (max-width: 600px) {
+    .test-input-group {
+        flex-direction: column;
+    }
+    
+    .step {
+        grid-template-columns: 1fr;
+    }
+}
